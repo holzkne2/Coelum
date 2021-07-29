@@ -6,16 +6,30 @@
 #include "GameFramework/Actor.h"
 #include "Building.generated.h"
 
-USTRUCT(BlueprintType) struct FloorType {
+USTRUCT(BlueprintType) struct FMeshData {
+	GENERATED_BODY();
+	
+	FMeshData() :
+		StaticMesh(nullptr),
+		UnionizeTransform(FQuat::Identity, FVector::ZeroVector, FVector(1.0f, 1.0f, 1.0f / 250.0f)) {};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UStaticMesh* StaticMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FTransform UnionizeTransform;
+};
+
+USTRUCT(BlueprintType) struct FFloorType {
 	GENERATED_BODY();
 
-	FloorType() : Height(250.0f) {};
+	FFloorType() : Height(250.0f), Pattern() {};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Height;
 
-	UPROPERTY(EditAnywhere, Category = "Building|Selection")
-	TArray<UStaticMesh*> MeshTypes;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<uint8> Pattern;
 };
 
 UCLASS()
@@ -30,11 +44,15 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	class USplineComponent* SplineComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Building|Const")
-	float DefaultSectionLength = 75;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Const")
+	float DefaultSectionLength = 140;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
-	TArray<FloorType> Floors;
+	TArray<FFloorType> Floors;
+
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
+	TArray<FMeshData> MeshTypes;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
 	UMaterialInstance* BaseMaterial;

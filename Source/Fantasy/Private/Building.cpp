@@ -21,7 +21,7 @@ ABuilding::ABuilding()
 
 	SplineComponent = CreateDefaultSubobject<USplineComponent>("Spline");
 
-	FloorType First = FloorType();
+	FFloorType First = FFloorType();
 	Floors.Add(First);
 }
 
@@ -63,7 +63,9 @@ void ABuilding::CreateMesh()
 			const int sections = FMath::Max((int)distance / (int)DefaultSectionLength, 1);
 			const float sectionsLength = distance / (float)sections;
 
+			const int patternSize = FMath::Max(Floors[f].Pattern.Num(), 1);
 			for (int s = 0; s < sections; ++s) {
+				const int patternS = s % patternSize;
 				float a = startDistance + s * sectionsLength;
 				float b = a + sectionsLength;
 
@@ -71,7 +73,10 @@ void ABuilding::CreateMesh()
 				FVector endPosition = SplineComponent->GetLocationAtDistanceAlongSpline(b, ESplineCoordinateSpace::Local);
 
 				FVector Offset = FVector::UpVector * HeightOffset;
-				if (Floors[f].MeshTypes.Num() == 0 || Floors[f].MeshTypes[0] == nullptr) {
+				if (MeshTypes.Num() == 0
+					|| Floors[f].Pattern.Num() == 0
+					|| Floors[f].Pattern[patternS] >= MeshTypes.Num()
+					|| MeshTypes[Floors[f].Pattern[patternS]].StaticMesh == nullptr) {
 					vertices.Add(startPosition + Offset);
 					vertices.Add(startPosition + FVector::UpVector * Floors[f].Height + Offset);
 					vertices.Add(endPosition + FVector::UpVector * Floors[f].Height + Offset);
@@ -104,17 +109,19 @@ void ABuilding::CreateMesh()
 					normals.Add(FVector::ForwardVector);
 					normals.Add(FVector::ForwardVector);
 				} else {
-					UStaticMesh* StaticMesh = Floors[f].MeshTypes[0];
+					const auto& MeshData = MeshTypes[Floors[f].Pattern[patternS]];
+					UStaticMesh* StaticMesh = MeshData.StaticMesh;
 					const auto& MeshLOD0 = StaticMesh->GetRenderData()->LODResources[0];
 					
 					FTransform transform = FTransform(
 						UKismetMathLibrary::FindLookAtRotation(startPosition, endPosition),
 						startPosition + Offset,
-						FVector(sectionsLength / 100.0f, 1.0f, Floors[f].Height / 100.0f));
+						FVector(sectionsLength / 100.0f, 1.0f, Floors[f].Height));
 
 					for (int v = 0; v < MeshLOD0.GetNumVertices(); ++v) {
 						FVector pos = MeshLOD0.VertexBuffers.PositionVertexBuffer.VertexPosition(v);
-						FVector newPos = transform.TransformPosition(pos);
+						FVector posUnit = MeshData.UnionizeTransform.TransformPosition(pos);
+						FVector newPos = transform.TransformPosition(posUnit);
 						vertices.Add(newPos);
 						uvs.Add(MeshLOD0.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(v, 0));
 						normals.Add(MeshLOD0.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(v));
