@@ -43,13 +43,19 @@ void ABuilding::BeginPlay()
 	
 }
 
-void ABuilding::CreateMesh()
-{
+struct Mesh {
 	TArray<FVector> vertices;
 	TArray<int32> tris;
 	TArray<FVector2D> uvs;
 	TArray<FVector> normals;
+	TArray<FProcMeshTangent> tangents;
 	int triangleCount = 0;
+};
+
+void ABuilding::CreateMesh()
+{
+	TArray<Mesh> meshes;
+	meshes.AddDefaulted(3);
 
 	float HeightOffset = 0;
 	for (int f = 0; f < Floors.Num(); ++f) {
@@ -77,96 +83,90 @@ void ABuilding::CreateMesh()
 					|| Floors[f].Pattern.Num() == 0
 					|| Floors[f].Pattern[patternS] >= MeshTypes.Num()
 					|| MeshTypes[Floors[f].Pattern[patternS]].StaticMesh == nullptr) {
-					vertices.Add(startPosition + Offset);
-					vertices.Add(startPosition + FVector::UpVector * Floors[f].Height + Offset);
-					vertices.Add(endPosition + FVector::UpVector * Floors[f].Height + Offset);
-					vertices.Add(endPosition + Offset);
+					meshes[0].vertices.Add(startPosition + Offset);
+					meshes[0].vertices.Add(startPosition + FVector::UpVector * Floors[f].Height + Offset);
+					meshes[0].vertices.Add(endPosition + FVector::UpVector * Floors[f].Height + Offset);
+					meshes[0].vertices.Add(endPosition + Offset);
 
-					int index = triangleCount;
-					tris.Add(index);
-					tris.Add(index + 2);
-					tris.Add(index + 1);
-					tris.Add(index);
-					tris.Add(index + 3);
-					tris.Add(index + 2);
-					triangleCount += 4;
+					int index = meshes[0].triangleCount;
+					meshes[0].tris.Add(index);
+					meshes[0].tris.Add(index + 2);
+					meshes[0].tris.Add(index + 1);
+					meshes[0].tris.Add(index);
+					meshes[0].tris.Add(index + 3);
+					meshes[0].tris.Add(index + 2);
+					meshes[0].triangleCount += 4;
 
 					if (sectionsLength < DefaultSectionLength) {
 						float d = sectionsLength / DefaultSectionLength;
-						uvs.Add(FVector2D(0, 0));
-						uvs.Add(FVector2D(0, 1));
-						uvs.Add(FVector2D(d, 1));
-						uvs.Add(FVector2D(d, 0));
+						meshes[0].uvs.Add(FVector2D(0, 0));
+						meshes[0].uvs.Add(FVector2D(0, 1));
+						meshes[0].uvs.Add(FVector2D(d, 1));
+						meshes[0].uvs.Add(FVector2D(d, 0));
 					} else {
-						uvs.Add(FVector2D(0, 0));
-						uvs.Add(FVector2D(0, 1));
-						uvs.Add(FVector2D(1, 1));
-						uvs.Add(FVector2D(1, 0));
+						meshes[0].uvs.Add(FVector2D(0, 0));
+						meshes[0].uvs.Add(FVector2D(0, 1));
+						meshes[0].uvs.Add(FVector2D(1, 1));
+						meshes[0].uvs.Add(FVector2D(1, 0));
 					}
 
-					normals.Add(FVector::ForwardVector);
-					normals.Add(FVector::ForwardVector);
-					normals.Add(FVector::ForwardVector);
-					normals.Add(FVector::ForwardVector);
+					meshes[0].normals.Add(FVector::ForwardVector);
+					meshes[0].normals.Add(FVector::ForwardVector);
+					meshes[0].normals.Add(FVector::ForwardVector);
+					meshes[0].normals.Add(FVector::ForwardVector);
 				} else {
 					const auto& MeshData = MeshTypes[Floors[f].Pattern[patternS]];
 					UStaticMesh* StaticMesh = MeshData.StaticMesh;
 					const auto& MeshLOD0 = StaticMesh->GetRenderData()->LODResources[0];
 					
-					FTransform transform = FTransform(
-						UKismetMathLibrary::FindLookAtRotation(startPosition, endPosition),
-						startPosition + Offset,
-						FVector(sectionsLength / 100.0f, 1.0f, Floors[f].Height));
+					for (int meshSectionIndex = 0; meshSectionIndex < MeshLOD0.Sections.Num(); ++meshSectionIndex) {
+						const auto& meshSection = MeshLOD0.Sections[meshSectionIndex];
+						const int meshMaterialIndex = meshSection.MaterialIndex;
 
-					for (int v = 0; v < MeshLOD0.GetNumVertices(); ++v) {
-						FVector pos = MeshLOD0.VertexBuffers.PositionVertexBuffer.VertexPosition(v);
-						FVector posUnit = MeshData.UnionizeTransform.TransformPosition(pos);
-						FVector newPos = transform.TransformPosition(posUnit);
-						vertices.Add(newPos);
-						uvs.Add(MeshLOD0.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(v, 0));
-						normals.Add(MeshLOD0.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(v));
-					}
+						FTransform transform = FTransform(
+							UKismetMathLibrary::FindLookAtRotation(startPosition, endPosition),
+							startPosition + Offset,
+							FVector(sectionsLength / 100.0f, 1.0f, Floors[f].Height));
 
-					for (int t = 0; t < MeshLOD0.GetNumTriangles()*3; ++t) {
-						tris.Add(triangleCount + MeshLOD0.IndexBuffer.GetIndex(t));
+						const auto addVertex = [&](int index) {
+							FVector pos = MeshLOD0.VertexBuffers.PositionVertexBuffer.VertexPosition(index);
+							FVector posUnit = MeshData.UnionizeTransform.TransformPosition(pos);
+							FVector newPos = transform.TransformPosition(posUnit);
+							meshes[meshMaterialIndex].vertices.Add(newPos);
+							meshes[meshMaterialIndex].uvs.Add(MeshLOD0.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(index, 0));
+							meshes[meshMaterialIndex].normals.Add(MeshLOD0.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(index));
+							meshes[meshMaterialIndex].tangents.Add(FProcMeshTangent(
+								MeshLOD0.VertexBuffers.StaticMeshVertexBuffer.VertexTangentX(index), false));
+						};
+
+						for (uint32 v = meshSection.MinVertexIndex; v <= meshSection.MaxVertexIndex; ++v) {
+							addVertex(v);
+						}
+
+						for (uint32 t = 0; t < meshSection.NumTriangles; ++t) {
+							int tIndex = t * 3 + meshSection.FirstIndex;
+
+							int offset = meshes[meshMaterialIndex].triangleCount - meshSection.MinVertexIndex;
+							meshes[meshMaterialIndex].tris.Add(offset + MeshLOD0.IndexBuffer.GetIndex(tIndex));
+							meshes[meshMaterialIndex].tris.Add(offset + MeshLOD0.IndexBuffer.GetIndex(tIndex + 1));
+							meshes[meshMaterialIndex].tris.Add(offset + MeshLOD0.IndexBuffer.GetIndex(tIndex + 2));
+						}
+						meshes[meshMaterialIndex].triangleCount = meshes[meshMaterialIndex].vertices.Num();
 					}
-					triangleCount += MeshLOD0.GetNumVertices();
 				}
 			}
 		}
 		HeightOffset += Floors[f].Height;
 	}
 
-	//normals.AddZeroed(vertices.Num());
-	//for (int t = 0; t < tris.Num(); t += 3) {
-	//	const auto doNormal = [vertices, &normals](int a, int b, int c) {
-	//		const auto& vertexA = vertices[a];
-	//		const auto& vertexB = vertices[b];
-	//		const auto& vertexC = vertices[c];
-	//		FVector U = vertexB - vertexA;
-	//		FVector V = vertexC - vertexA;
-
-	//		FVector normal = FVector::CrossProduct(V, U);
-	//		normals[a] += normal;
-	//		normals[b] += normal;
-	//		normals[c] += normal;
-	//	};
-	//	const auto& a = tris[t];
-	//	const auto& b = tris[t + 1];
-	//	const auto& c = tris[t + 2];
-	//	doNormal(a, b, c);
-	//}
-
-	//for (int n = 0; n < normals.Num(); ++n) {
-	//	normals[n].Normalize();
-	//}
-
-	TArray<FVector> _normals;
-	TArray<FProcMeshTangent> tangents;
-	UKismetProceduralMeshLibrary::CalculateTangentsForMesh(vertices, tris, uvs, _normals, tangents);
-
-	MeshComponent->CreateMeshSection(0, vertices, tris, normals, uvs, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), tangents, true);
-	MeshComponent->SetMaterial(0, BaseMaterial);
+	for (int i = 0; i < meshes.Num(); ++i) {
+		MeshComponent->CreateMeshSection(i, meshes[i].vertices, meshes[i].tris, meshes[i].normals, meshes[i].uvs, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), meshes[i].tangents, i == 0);
+		if (i < Materials.Num()) {
+			MeshComponent->SetMaterial(i, Materials[i]);
+		} else {
+			MeshComponent->SetMaterial(i, nullptr);
+		}
+	}
 }
 
 // Called every frame

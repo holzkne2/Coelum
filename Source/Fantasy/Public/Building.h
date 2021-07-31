@@ -55,7 +55,7 @@ public:
 	TArray<FMeshData> MeshTypes;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
-	UMaterialInstance* BaseMaterial;
+	TArray<UMaterialInterface*> Materials;
 
 public:	
 	// Sets default values for this actor's properties
