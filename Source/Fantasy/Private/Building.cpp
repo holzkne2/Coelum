@@ -160,7 +160,7 @@ void ABuilding::CreateMesh()
 	}
 
 	for (int i = 0; i < meshes.Num(); ++i) {
-		MeshComponent->CreateMeshSection(i, meshes[i].vertices, meshes[i].tris, meshes[i].normals, meshes[i].uvs, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), meshes[i].tangents, i == 0);
+		MeshComponent->CreateMeshSection(i, meshes[i].vertices, meshes[i].tris, meshes[i].normals, meshes[i].uvs, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), meshes[i].tangents, true);
 		if (i < Materials.Num()) {
 			MeshComponent->SetMaterial(i, Materials[i]);
 		} else {
