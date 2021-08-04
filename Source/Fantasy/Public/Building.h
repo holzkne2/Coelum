@@ -20,16 +20,25 @@ USTRUCT(BlueprintType) struct FMeshData {
 	FTransform UnionizeTransform;
 };
 
+USTRUCT(BlueprintType) struct FBuildingSection {
+	GENERATED_BODY();
+
+	FBuildingSection() : Pattern() {}
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<uint8> Pattern;
+};
+
 USTRUCT(BlueprintType) struct FFloorType {
 	GENERATED_BODY();
 
-	FFloorType() : Height(250.0f), Pattern() {};
+	FFloorType() : Height(250.0f), Sections() {};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Height;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<uint8> Pattern;
+	TArray<FBuildingSection> Sections;
 };
 
 UCLASS()
@@ -50,12 +59,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	TArray<FFloorType> Floors;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	bool FillBottom = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
 	TArray<FMeshData> MeshTypes;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
-	TArray<UMaterialInterface*> Materials;
+	TMap<UMaterialInterface*, UMaterialInterface*> Materials;
 
 public:	
 	// Sets default values for this actor's properties

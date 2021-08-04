@@ -171,7 +171,7 @@ void ABuilding::CreateMesh()
 		MeshComponent->CreateMeshSection(i, Mesh.vertices, Mesh.tris, Mesh.normals, Mesh.uvs, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), Mesh.tangents, true);
 		const auto& DebugMaterial = Itr.Key();
 		const auto& FinalMaterial = Materials.Find(DebugMaterial);
-		if (*FinalMaterial == nullptr) {
+		if (FinalMaterial == nullptr) {
 			MeshComponent->SetMaterial(i, DebugMaterial);
 		} else {
 			MeshComponent->SetMaterial(i, *FinalMaterial);
