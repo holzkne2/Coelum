@@ -68,9 +68,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
 	TMap<UMaterialInterface*, UMaterialInterface*> Materials;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
-	UMaterialInterface* TempMat;
-
 public:	
 	// Sets default values for this actor's properties
 	ABuilding();

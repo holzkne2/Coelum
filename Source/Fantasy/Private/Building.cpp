@@ -6,6 +6,7 @@
 #include <Components/SplineComponent.h>
 #include "KismetProceduralMeshLibrary.h"
 #include <Kismet/KismetMathLibrary.h>
+#include <DrawDebugHelpers.h>
 
 #define INDEX(_x, _y, _z) (((_z) * Length * Width) + ((_y) * Width) + (_x))
 
@@ -70,6 +71,10 @@ struct TMesh {
 
 void ABuilding::CreateMesh()
 {
+	for (int i = 0; i < MeshComponent->GetNumSections(); ++i) {
+		MeshComponent->ClearMeshSection(i);
+	}
+
 	TMap<UMaterialInterface*, TMesh> Meshes;
 	for (int meshType = 0; meshType < MeshTypes.Num(); ++meshType) {
 		const auto& DebugMaterials = MeshTypes[meshType].StaticMesh->GetStaticMaterials();
@@ -162,7 +167,95 @@ void ABuilding::CreateMesh()
 	}
 
 	if (FillBottom) {
+		constexpr float TriangleSize = 64.0f;
 
+		const auto& ComponentBounds = SplineComponent->Bounds.BoxExtent;
+		const auto& ComponentOrigin = SplineComponent->Bounds.Origin;
+		int NumX = FMath::CeilToInt((ComponentBounds.X / TriangleSize) + 1);
+		int NumY = FMath::CeilToInt((ComponentBounds.Y / ((TriangleSize / 2.0f) * FMath::Tan(FMath::DegreesToRadians(60)))) + 1);
+
+		TArray<FVector> vertices;
+		TArray<FVector> normals;
+		TArray<int8> pointIndex;
+		for (int y = -NumY; y <= NumY; ++y) {
+			for (int x = -NumX; x <= NumX; ++x) {
+				int CurrentX = ComponentOrigin.X + (TriangleSize * x) + ((TriangleSize / 2.0f) * (FMath::Abs(y + NumY) % 2));
+				int CurrentY = ComponentOrigin.Y + (TriangleSize / 2.0f * FMath::Tan(FMath::DegreesToRadians(60)) * y);
+				FVector CurrentLocation(CurrentX, CurrentY, ComponentOrigin.Z);
+				//DrawDebugSphere(GetWorld(), CurrentLocation, 2, 8, FColor::Black, false, 30);
+
+				FVector CurrentEdgeLocation = SplineComponent->FindLocationClosestToWorldLocation(CurrentLocation, ESplineCoordinateSpace::World);
+				FVector DistanceClosest = SplineComponent->FindDirectionClosestToWorldLocation(CurrentLocation, ESplineCoordinateSpace::World);
+				const bool inside = FVector::DotProduct(CurrentEdgeLocation - CurrentLocation, FVector::CrossProduct(FVector::UpVector, DistanceClosest)) > 0;
+				const bool edge = (CurrentEdgeLocation - CurrentLocation).Size() < TriangleSize;
+
+				normals.Add(FVector::DownVector);
+				if (inside) {
+					// Inside
+					//DrawDebugSphere(GetWorld(), CurrentLocation, 2, 8, FColor::Green, false, 30);
+
+					vertices.Add(CurrentLocation);
+					pointIndex.Add(0);
+				} else if (edge) {
+					// Edge
+					//DrawDebugSphere(GetWorld(), CurrentEdgeLocation, 2, 8, FColor::Red, false, 30);
+
+					vertices.Add(CurrentEdgeLocation);
+					pointIndex.Add(1);
+				} else {
+					// Outside
+					//DrawDebugSphere(GetWorld(), CurrentLocation, 2, 8, FColor::Black, false, 30);
+					
+					vertices.Add(CurrentLocation);
+					pointIndex.Add(-1);
+				}
+			}
+		}
+
+		const int GridX = NumX * 2;
+		TArray<int32> triangles;
+		for (int i = GridX + 1; i <= vertices.Num() - 2; ++i) {
+			if ((i + 1) % (GridX + 1) == 0) {
+				continue;
+			}
+			int a = ((((i / (GridX + 1)) % 2) * -1) + 1) + i;
+			int b = i - (GridX + 1);
+			int c = i - (GridX + 1) + 1;
+
+			if (pointIndex[a] >= 0 && pointIndex[b] >= 0 && pointIndex[c] >= 0) {
+				// Inverted Tris
+				triangles.Add(a);
+				triangles.Add(b);
+				triangles.Add(c);
+
+				//DrawDebugLine(GetWorld(), vertices[triangles[triangles.Num() - 3]], vertices[triangles[triangles.Num() - 2]], FColor::Blue, false, 30);
+				//DrawDebugLine(GetWorld(), vertices[triangles[triangles.Num() - 2]], vertices[triangles[triangles.Num() - 1]], FColor::Blue, false, 30);
+				//DrawDebugLine(GetWorld(), vertices[triangles[triangles.Num() - 3]], vertices[triangles[triangles.Num() - 1]], FColor::Blue, false, 30);
+			}
+
+			a = i;
+			b = i - ((GridX + 1) - ((i / (GridX + 1)) % 2));
+			c = i + 1;
+
+			if (pointIndex[a] >= 0 && pointIndex[b] >= 0 && pointIndex[c] >= 0) {
+				// Tris
+				triangles.Add(a);
+				triangles.Add(b);
+				triangles.Add(c);
+
+				//DrawDebugLine(GetWorld(), vertices[triangles[triangles.Num() - 3]], vertices[triangles[triangles.Num() - 2]], FColor::Blue, false, 30);
+				//DrawDebugLine(GetWorld(), vertices[triangles[triangles.Num() - 2]], vertices[triangles[triangles.Num() - 1]], FColor::Blue, false, 30);
+				//DrawDebugLine(GetWorld(), vertices[triangles[triangles.Num() - 3]], vertices[triangles[triangles.Num() - 1]], FColor::Blue, false, 30);
+			}
+		}
+
+		for (int i = 0; i < vertices.Num(); ++i) {
+			//DrawDebugSphere(GetWorld(), vertices[i], 1, 8, FColor::White, false, 30);
+			vertices[i] = GetTransform().InverseTransformPosition(vertices[i]);
+		}
+
+		MeshComponent->CreateMeshSection(3, vertices, triangles, normals, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), TArray<FProcMeshTangent>(), true);
+		MeshComponent->SetMaterial(3, TempMat);
 	}
 
 	int i = 0;
@@ -171,7 +264,7 @@ void ABuilding::CreateMesh()
 		MeshComponent->CreateMeshSection(i, Mesh.vertices, Mesh.tris, Mesh.normals, Mesh.uvs, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), Mesh.tangents, true);
 		const auto& DebugMaterial = Itr.Key();
 		const auto& FinalMaterial = Materials.Find(DebugMaterial);
-		if (*FinalMaterial == nullptr) {
+		if (FinalMaterial == nullptr || *FinalMaterial == nullptr) {
 			MeshComponent->SetMaterial(i, DebugMaterial);
 		} else {
 			MeshComponent->SetMaterial(i, *FinalMaterial);
