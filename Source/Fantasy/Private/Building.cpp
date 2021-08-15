@@ -41,7 +41,10 @@ void ABuilding::OnConstruction(const FTransform& Transform)
 	}
 	
 	for (int f = 0; f < Floors.Num(); ++f) {
-		int sectionsDifference = Sections - Floors[f].Sections.Num();
+		int sectionsDifference = FMath::Max(0, Sections - Floors[f].Sections.Num());
+		if (sectionsDifference <= 0) {
+			continue;
+		}
 		Floors[f].Sections.AddDefaulted(sectionsDifference);
 		for (int s = 0; s < Sections; ++s) {
 			if (Floors[f].Sections[s].Pattern.Num() == 0) {
@@ -273,7 +276,6 @@ void ABuilding::CreateMesh()
 
 			MeshComponent->CreateMeshSection(Meshes.Num(), vertices, triangles, normals, UVs, TArray<FVector2D>(), TArray<FVector2D>(), TArray<FVector2D>(), TArray<FColor>(), TArray<FProcMeshTangent>(), true);
 			MeshComponent->SetMaterial(Meshes.Num(), BottomMaterial);
-			MeshComponent
 		}
 
 		if (FillTop) {

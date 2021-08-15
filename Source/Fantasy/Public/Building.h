@@ -62,7 +62,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	TArray<FFloorType> Floors;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	bool FillBottom = false;
 
