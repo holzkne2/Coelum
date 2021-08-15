@@ -11,13 +11,17 @@ USTRUCT(BlueprintType) struct FMeshData {
 	
 	FMeshData() :
 		StaticMesh(nullptr),
-		UnionizeTransform(FQuat::Identity, FVector::ZeroVector, FVector(1.0f, 1.0f, 1.0f / 250.0f)) {};
+		Length(250.0f),
+		Height(300.0f) {};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* StaticMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FTransform UnionizeTransform;
+	float Length;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float Height;
 };
 
 USTRUCT(BlueprintType) struct FBuildingSection {
@@ -62,14 +66,23 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	bool FillBottom = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	UMaterialInterface* BottomMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	bool FillTop = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	UMaterialInterface* TopMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	float TopSink = 0;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
 	TArray<FMeshData> MeshTypes;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Selection")
 	TMap<UMaterialInterface*, UMaterialInterface*> Materials;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
-	UMaterialInterface* TempMat;
 
 public:	
 	// Sets default values for this actor's properties
